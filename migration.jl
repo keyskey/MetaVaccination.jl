@@ -22,7 +22,7 @@ module Migration
     # Randomely migrate the given agent
     function random_migration(society, migrator_id)
         my_island = society.island_id[migrator_id]
-        next_island = rand(society.linked_island[my_island]
+        next_island = rand(society.linked_island[my_island])
         society.island_id[migrator_id] = next_island
     end
 end

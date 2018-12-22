@@ -1,4 +1,6 @@
 module Society
+    using Statistics
+
     mutable struct  SocietyType
         num_island::Int
         total_population::Int
@@ -26,7 +28,7 @@ module Society
             num_island,                                                                      # num_island
             total_population,                                                                # total_population
             fill(div(total_population, num_island), num_island),                             # island_population
-            [ [ island_id +1 for island_id in topology[i] ] for i = 1:num_island ],          # linked_island
+            [ [ island_id+1 for island_id in topology[i] ] for i = 1:num_island ],           # linked_island
             zeros(num_island),                                                               # num_s
             zeros(num_island),                                                               # num_im 
             zeros(num_island),                                                               # num_i 
@@ -35,7 +37,7 @@ module Society
             fill(" ", total_population),                                                     # strategy
             zeros(total_population),                                                         # point
             [],                                                                              # survivors
-            collect(Iterators.Flatten([fill(i, div(total_population, num_island)) for i = 1:num_island ])),  # island_id
+            collect(Iterators.Flatten([fill(i, div(total_population, num_island)) for i = 1:num_island])),  # island_id
             0,                                                                               # total_transition_probability
             0                                                                                # accun_day
             )  
@@ -52,6 +54,10 @@ module Society
     end
 
     function count_fv(society)
-        return length(filter(strategy -> strategy == "V", society.strategy)/society.total_population
+        return length(filter(strategy -> strategy == "V", society.strategy))/society.total_population
+    end
+
+    function count_SAP(society)
+        return Statistics.mean(society.point)
     end
 end
