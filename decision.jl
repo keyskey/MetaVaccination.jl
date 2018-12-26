@@ -21,44 +21,35 @@ module Decision
         for i = 1:society.total_population
             society.strategy[i] = ifelse(i in initial_v, "V", "NV")
         end
-        
     end
 
     function count_payoff(society, cr)
-        state = society.state
-        strategy = society.strategy
-
         for i = 1:society.total_population
-            society.point[i] += @match state[i], strategy[i] begin
+            society.point[i] += @match society.state[i], society.strategy[i] begin
                 "S", "V"   => -cr
                 "S", "NV"  => 0
                 "IM", "V"  => -cr
-                "IM", "NV" => error("Error in count_payoff, IM & NV pair detected")
                 "R", "V"   => -cr-1
                 "R", "NV"  => -1
-                "I", "V"   => error("Error in count_payoff, I & V pair detected")
-                "I", "NV"  => error("Error in count_payoff, I & NV pair detected")
                  _ , _      => error("Error in count_payoff")
             end
         end
     end
 
+    # Update strategy by PW-Fermi
     function pairwise_fermi(society)
-        strategy = society.strategy
-        point = society.point
-
         islands = Migration.get_islands(society)
         next_strategy = []
         for i = 1:society.total_population
             my_island = society.island_id[i]
             opp_candidates = filter(opp_id -> opp_id != i, islands[my_island])
             opp_id = rand(opp_candidates)
-            if strategy[opp_id] != strategy[i] && rand() <= 1/( 1 + exp( (point[i] - point[opp_id])/0.1 ) )
-                push!(next_strategy, strategy[opp_id])
+            if society.strategy[opp_id] != society.strategy[i] && rand() <= 1/(1 + exp((society.point[i] - society.point[opp_id])/0.1))
+                push!(next_strategy, society.strategy[opp_id])
             else
-                push!(next_strategy, strategy[i])
+                push!(next_strategy, society.strategy[i])
             end
         end
-        strategy = next_strategy
+        society.strategy = next_strategy
     end
 end

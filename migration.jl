@@ -22,7 +22,23 @@ module Migration
     # Randomely migrate the given agent
     function random_migration(society, migrator_id)
         my_island = society.island_id[migrator_id]
+        society.num_i[my_island] -= 1
+        next_island = rand(society.linked_island[my_island])  # Decide destination
+        society.island_id[migrator_id] = next_island          # Migrate  
+        society.num_i[next_island] += 1
+    end
+
+    # Randomely migrate S or E agent
+    function SE_random_migration(society, migrator_id)
+        my_island = society.island_id[migrator_id]
         next_island = rand(society.linked_island[my_island])
+        if society.state[migrator_id] == "S"
+            society.num_s[my_island] -=1
+            society.num_s[next_island] += 1
+        elseif society.state[migrator_id] == "E"
+            society.num_e[my_island] -= 1
+            society.num_e[next_island] += 1
+        end
         society.island_id[migrator_id] = next_island
     end
 end
