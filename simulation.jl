@@ -22,8 +22,7 @@ module Simulation
         @printf("Cr: %.1f e: %.1f Initial Season => Fv: %.3f \n", cr, e, fv0)
 
         # Strategy update loop
-        for season = 1:1000
-            Migration.reset_island(society)
+        for season = 1:3000
             Epidemics.initialize_state(society, beta, gamma, e, m_rate, num_i_each_island)
             fs0, fim0, fe0, fi0, fr0 = Society.count_state_fraction(society)
             @printf("Cr: %.1f e: %.1f Season: %i Step: 0 Fs: %.4f Fim: %.4f Fe: %.4f Fi: %.4f Fr: %.4f \n", cr, e, season, fs0, fim0, fe0, fi0, fr0)
@@ -35,7 +34,7 @@ module Simulation
                 @printf("Cr: %.1f e: %.1f Season: %i Step: %i Fs: %.4f Fim: %.4f Fe: %.4f Fi: %.4f Fr: %.4f Migrated: %s \n", cr, e, season, step, fs, fim, fe, fi, fr, migrated)
 
                 # Check conversion
-                if fi == 0
+                if fe == 0 && fi == 0
                     break
                 end
             end
@@ -68,14 +67,14 @@ module Simulation
         Random.seed!()
         DataFrame(Cr = [], Effectiveness = [], FES = [], VC = [], SAP = []) |> CSV.write("result$episode.csv")  # Write header
         gamma = 1/3
-        m_rate = 0.1
+        m_rate = 0.01
         num_i_each_island = 1
 
         init_v = Decision.choose_initial_vaccinators(society)
         for beta in [0.00037]
             for alpha in [1/7]
-                for cr = 0:0.1:1
-                    for e = 0:0.1:1
+                for cr in [0.7] # = 0:0.1:1
+                    for e in [0.8, 0.9] # = 0:0.1:1
                         FES, VC, SAP = season_loop(society, beta, alpha, gamma, m_rate, cr, e, init_v, num_i_each_island)
                         DataFrame(Cr = [cr], Effectiveness = [e], FES = [FES], VC = [VC], SAP = [SAP]) |> CSV.write("result$episode.csv", append=true)
                     end

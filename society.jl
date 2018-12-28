@@ -1,5 +1,6 @@
 module Society
     using Statistics
+    export SocietyType
 
     mutable struct  SocietyType
         num_island::Int

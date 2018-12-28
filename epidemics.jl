@@ -1,30 +1,32 @@
 include("migration.jl")
+include("society.jl")
 
 module Epidemics
     using StatsBase
     using Match
+    using ..Society
     using ..Migration
 
-    function initialize_state(society, beta, gamma, effectiveness, m_rate, num_i_each_island)
+    function initialize_state(society::SocietyType, beta::Float64, gamma::Float64, effectiveness::Float64, m_rate::Float64, num_i_each_island::Int)
         reset_parameters(society)
         set_initial_state(society, effectiveness, num_i_each_island)
         set_total_transition_probability(society, beta, gamma, m_rate)
     end
 
     # Initialize num_s/i/r, survivors, accum_day
-    function reset_parameters(society)
+    function reset_parameters(society::SocietyType)
         n = society.num_island
         island_size       = div(society.total_population, n) 
         society.num_s     = fill(0, n)   # Need to count
         society.num_im    = fill(0, n)   # Need to count
+        society.num_i     = fill(0, n)   # Need to count
         society.num_e     = fill(0, n)   # Determined
-        society.num_i     = fill(0, n)   # Determined
         society.num_r     = fill(0, n)   # Determined
         society.survivors = []
         society.accum_day = 0
     end
 
-    function set_initial_state(society, effectiveness, num_i_each_island)
+    function set_initial_state(society::SocietyType, effectiveness::Float64, num_i_each_island::Int)
         non_v_island = fill([], society.num_island)   # Initially infected people are chosen from non vaccinators
         for i = 1:society.total_population
             my_island = society.island_id[i]
@@ -53,17 +55,19 @@ module Epidemics
         end
     end
 
-    function set_total_transition_probability(society, beta, alpha, gamma, m_rate)
+    # Used within a single season
+    function set_total_transition_probability(society::SocietyType, beta::Float64, alpha::Float64, gamma::Float64, m_rate::Float64)
         society.total_transition_probability = 0
         for island = 1:society.num_island
             Ps_e = beta * society.num_i[island]
             Pe_i = alpha
             Pi_r = gamma
-            society.total_transition_probability += (Ps_e + m_rate) * society.num_s[island] + (alpha + m_rate) * society.num_e[island] + Pi_r * society.num_i[island]  
+            society.total_transition_probability += (Ps_e + m_rate) * society.num_s[island] + (Pe_i + m_rate) * society.num_e[island] + Pi_r * society.num_i[island]  
         end
     end
 
-    function set_total_transition_probability(society, beta, gamma, m_rate)
+    # Used only at the initial day of a season
+    function set_total_transition_probability(society::SocietyType, beta::Float64, gamma::Float64, m_rate::Float64)
         society.total_transition_probability = 0
         for island = 1:society.num_island
             Ps_e  = beta * society.num_i[island]
@@ -72,7 +76,7 @@ module Epidemics
         end
     end
 
-    function desease_spreading(society, id)
+    function desease_spreading(society::SocietyType, id::Int)
         my_island = society.island_id[id]
         @match society.state[id] begin
             "S" =>
@@ -99,11 +103,11 @@ module Epidemics
         society.state[id] = next_state
     end
 
-    function state_change(society, beta, gamma, alpha, m_rate)
-        rand_num = rand()
-        accum_probability = 0
-        no_one_changed = true
-        migrated = false
+    function state_change(society::SocietyType, beta::Float64, gamma::Float64, alpha::Float64, m_rate::Float64)
+        rand_num::Float64 = rand()
+        accum_probability::Float64 = 0
+        no_one_changed::Bool = true
+        migrated::Bool = false
 
         # Go to desease_spreading
         for i in society.survivors
@@ -112,17 +116,13 @@ module Epidemics
                 "S" => beta * society.num_i[my_island]/society.total_transition_probability
                 "E" => alpha/society.total_transition_probability
                 "I" => gamma/society.total_transition_probability
-                 _  => error("Error in state change, my state doesn't match with S/I")
+                 _  => error("Error in state change, my state doesn't match with S/E/I")
             end
 
             if rand_num <= accum_probability
                 desease_spreading(society, i)
                 no_one_changed = false 
                 migrated = false
-                if society.num_i[my_island] < 0
-                    println("Error happened due to agent $i after desease_spreading, whose state is ", society.state[i])
-                    error("Num I = $(society.num_i[my_island]) at $i")
-                end
                 break  # Escape from survivors loop
             end
         end
@@ -131,7 +131,6 @@ module Epidemics
         if no_one_changed
             for i in society.survivors
                 accum_probability += ifelse(society.state[i] in ["S", "E"], m_rate/society.total_transition_probability, 0)
-                #accum_probability += ifelse(society.state[i] == "I", m_rate/society.total_transition_probability, 0)
                 if rand_num <= accum_probability
                     Migration.SE_random_migration(society, i)
                     #Migration.random_migration(society, i)

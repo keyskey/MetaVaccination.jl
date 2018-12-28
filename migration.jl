@@ -15,15 +15,13 @@ module Migration
     function reset_island(society)
         island_population = div(society.total_population, society.num_island)
         society.island_id = collect(Iterators.Flatten([fill(i, island_population) for i = 1:society.num_island ]))
-        
-        return society
     end
 
     # Randomely migrate the given agent
     function random_migration(society, migrator_id)
         my_island = society.island_id[migrator_id]
-        society.num_i[my_island] -= 1
         next_island = rand(society.linked_island[my_island])  # Decide destination
+        society.num_i[my_island] -= 1
         society.island_id[migrator_id] = next_island          # Migrate  
         society.num_i[next_island] += 1
     end

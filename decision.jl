@@ -31,7 +31,7 @@ module Decision
                 "IM", "V"  => -cr
                 "R", "V"   => -cr-1
                 "R", "NV"  => -1
-                 _ , _      => error("Error in count_payoff")
+                 _ , _      => 0  #error("Error in count_payoff")
             end
         end
     end
@@ -42,8 +42,11 @@ module Decision
         next_strategy = []
         for i = 1:society.total_population
             my_island = society.island_id[i]
-            opp_candidates = filter(opp_id -> opp_id != i, islands[my_island])
-            opp_id = rand(opp_candidates)
+            opp_id = rand(islands[my_island])
+            while opp_id == i
+                opp_id = rand(islands[my_island])
+            end
+
             if society.strategy[opp_id] != society.strategy[i] && rand() <= 1/(1 + exp((society.point[i] - society.point[opp_id])/0.1))
                 push!(next_strategy, society.strategy[opp_id])
             else
