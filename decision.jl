@@ -31,7 +31,7 @@ module Decision
                 "IM", "V"  => -cr
                 "R", "V"   => -cr-1
                 "R", "NV"  => -1
-                 _ , _      => 0  #error("Error in count_payoff")
+                 _ , _      => error("Error in count_payoff")
             end
         end
     end

@@ -23,7 +23,7 @@ module Society
         island_id::Vector{Int}
         
         total_transition_probability::Float64
-        accum_day::Float64
+        elapse_days::Float64
         
         # Constructor
         SocietyType(total_population, num_island, topology) = new(
@@ -42,7 +42,7 @@ module Society
             [],                                                                              # survivors
             collect(Iterators.Flatten([fill(i, div(total_population, num_island)) for i = 1:num_island])),  # island_id
             0,                                                                               # total_transition_probability
-            0                                                                                # accun_day
+            0                                                                                # elapse_days
             )  
     end
 

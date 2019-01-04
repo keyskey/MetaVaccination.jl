@@ -7,14 +7,14 @@ module Epidemics
     using ..Society
     using ..Migration
 
-    function initialize_state(society::SocietyType, beta::Float64, gamma::Float64, effectiveness::Float64, m_rate::Float64, num_i_each_island::Int)
-        reset_parameters(society)
-        set_initial_state(society, effectiveness, num_i_each_island)
-        set_total_transition_probability(society, beta, gamma, m_rate)
+    function initialize_state(society::SocietyType; beta::Float64=0.83, gamma::Float64=1/3, m_rate::Float64=0.2, effectiveness::Float64=1.0, num_i_each_island::Int=1)
+        reset_counters(society)
+        initial_infection(society, effectiveness, num_i_each_island)
+        set_initial_total_transition_probability(society, beta, gamma, m_rate)
     end
 
     # Initialize num_s/i/r, survivors, accum_day
-    function reset_parameters(society::SocietyType)
+    function reset_counters(society::SocietyType)
         n = society.num_island
         island_size       = div(society.total_population, n) 
         society.num_s     = fill(0, n)   # Need to count
@@ -22,14 +22,16 @@ module Epidemics
         society.num_i     = fill(0, n)   # Need to count
         society.num_e     = fill(0, n)   # Determined
         society.num_r     = fill(0, n)   # Determined
-        society.survivors = []
-        society.accum_day = 0
+        society.elapse_days = 0          # Determined
+        society.survivors = []           # Need to push
     end
 
-    function set_initial_state(society::SocietyType, effectiveness::Float64, num_i_each_island::Int)
+    function initial_infection(society::SocietyType, effectiveness::Float64, num_i_each_island::Int)
         non_v_island = fill([], society.num_island)   # Initially infected people are chosen from non vaccinators
         for i = 1:society.total_population
             my_island = society.island_id[i]
+
+            # Vaccinators can get perfect immunity or keep susceptible
             if society.strategy[i] == "V"
                 if rand() <= effectiveness
                     society.state[i] = "IM"
@@ -39,6 +41,8 @@ module Epidemics
                     society.num_s[my_island] += 1
                     push!(society.survivors,i)
                 end
+
+            # Non-vaccinators are always susceptible at initial day of the season
             elseif society.strategy[i] == "NV"
                 society.state[i] = "S"
                 society.num_s[my_island] += 1
@@ -47,6 +51,7 @@ module Epidemics
             end
         end
         
+        # Select initially infected people from non-vaccinators in each island
         for i in collect(Iterators.Flatten([StatsBase.self_avoid_sample!(non_v_island[island], collect(1:num_i_each_island)) for island = 1:society.num_island]))
             my_island = society.island_id[i]
             society.state[i] = "I"
@@ -54,8 +59,18 @@ module Epidemics
             society.num_i[my_island] += 1
         end
     end
+    
+    # Count total transition probability. Only used inside initialize_state function.
+    function set_initial_total_transition_probability(society::SocietyType, beta::Float64, gamma::Float64, m_rate::Float64)
+        society.total_transition_probability = 0
+        for island = 1:society.num_island
+            Ps_e  = beta * society.num_i[island]
+            Pi_r = gamma
+            society.total_transition_probability += (Ps_e + m_rate) * society.num_s[island] + Pi_r * society.num_i[island]  
+        end
+    end
 
-    # Used within a single season
+    # Count total transition probability. Used during SIR days in every seasons.
     function set_total_transition_probability(society::SocietyType, beta::Float64, alpha::Float64, gamma::Float64, m_rate::Float64)
         society.total_transition_probability = 0
         for island = 1:society.num_island
@@ -63,16 +78,6 @@ module Epidemics
             Pe_i = alpha
             Pi_r = gamma
             society.total_transition_probability += (Ps_e + m_rate) * society.num_s[island] + (Pe_i + m_rate) * society.num_e[island] + Pi_r * society.num_i[island]  
-        end
-    end
-
-    # Used only at the initial day of a season
-    function set_total_transition_probability(society::SocietyType, beta::Float64, gamma::Float64, m_rate::Float64)
-        society.total_transition_probability = 0
-        for island = 1:society.num_island
-            Ps_e  = beta * society.num_i[island]
-            Pi_r = gamma
-            society.total_transition_probability += (Ps_e + m_rate) * society.num_s[island] + Pi_r * society.num_i[island]  
         end
     end
 
@@ -103,7 +108,7 @@ module Epidemics
         society.state[id] = next_state
     end
 
-    function state_change(society::SocietyType, beta::Float64, gamma::Float64, alpha::Float64, m_rate::Float64)
+    function state_change(society::SocietyType; beta::Float64=0.83, gamma::Float64=1/3, alpha::Float64=1/7, m_rate::Float64=0.2)
         rand_num::Float64 = rand()
         accum_probability::Float64 = 0
         no_one_changed::Bool = true
@@ -146,7 +151,13 @@ module Epidemics
         end
 
         set_total_transition_probability(society, beta, alpha, gamma, m_rate)
+        elapse_days = count_elapse_days(society)
 
-        return migrated
+        return migrated, elapse_days
+    end
+
+    function count_elapse_days(society::SocietyType)
+        society.elapse_days += log(1/rand())/society.total_transition_probability
+        return society.elapse_days
     end
 end
